@@ -235,7 +235,7 @@ h1{font-size:24px;margin:4px 0 6px}
 #gsvg{display:block;width:100%;height:min(68vh,640px);touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 #gsvg{--gk:1}#gsvg .gn>*{transform:scale(var(--gk))}#gsvg line{vector-effect:non-scaling-stroke;stroke:var(--muted);stroke-width:1.2;opacity:.55}#gsvg line.hot{stroke:var(--accent);opacity:.9;stroke-width:2}#gsvg line.dim{opacity:.1}
 #gsvg .gn{cursor:pointer}#gsvg .gn text{fill:var(--text);font-size:13px;pointer-events:none}
-#gsvg .word circle{fill:var(--accent);fill-opacity:.85;stroke:var(--bg);stroke-width:2}
+#gsvg .word.aiw circle{fill:#7c7fd6}#gsvg .word circle{fill:var(--accent);fill-opacity:.85;stroke:var(--bg);stroke-width:2}
 #gsvg .src rect{fill:var(--panel2);stroke:#e0b13a;stroke-width:1.5}#gsvg .src.song rect{stroke:#4a8fd6}#gsvg .src.bit rect{stroke:#8a9a6a;stroke-dasharray:3 2}#gsvg .src text{font-size:12px}
 #gsvg .gn.dim{opacity:.18}#gsvg .gn.sel circle,#gsvg .gn.sel rect{stroke:var(--text);stroke-width:3}
 .ginfo{margin-top:10px}.gitem{margin-top:10px}.gitem a{color:var(--accent);font-weight:600}.gline{font-size:14px;margin-top:2px}
@@ -249,6 +249,7 @@ h1{font-size:24px;margin:4px 0 6px}
 .bittx{white-space:pre-wrap;margin-top:5px;word-break:break-word;line-height:1.55}.bittx.mono{font-family:ui-monospace,Consolas,monospace}.bittx a{color:var(--accent);word-break:break-all}
 .bitta{width:100%;margin-top:5px}.bitimg{max-width:100%;max-height:220px;border-radius:8px;margin-top:6px;cursor:zoom-in;display:block}.bit audio{width:100%;margin-top:5px}.bitname{width:100%;margin-top:5px}
 .bgroup{border-left:4px solid var(--accent)}.bghead{gap:8px}.gto{margin:8px 0 2px;gap:6px;flex-wrap:wrap}.gto select{flex:1 1 140px;min-width:0}
+.gmood{font-size:13px;color:var(--sub);margin:4px 0 2px}.bgroup.aig{border-left-color:#7c7fd6}.aibar{margin-top:8px}
 .ifrom{font-size:13px;color:var(--sub);margin:2px 0 6px}.ifrom a{color:var(--accent);margin-right:8px}
 .rowbtns{display:flex;gap:2px;opacity:.35}
 .row:hover .rowbtns{opacity:1}
@@ -668,7 +669,7 @@ function topbar(tab){
   <span class="histbtns"><button class="ghost" id="undoB" data-act="undo" title="元に戻す (Ctrl+Z)" aria-label="元に戻す" ${H.past.length?'':'disabled'}>${ICON_UNDO}</button><button class="ghost" id="redoB" data-act="redo" title="やり直す (Ctrl+Y)" aria-label="やり直す" ${H.future.length?'':'disabled'}>${ICON_REDO}</button></span>
   <button class="ghost menubtn ${tab==='settings'?'on':''}" data-act="menuOpen" title="メニュー(表示・バンド・共有コード・バックアップなど)">☰${newsUnseen()?'<span class="newdot"></span>':''}</button></header>`}
 /* ---------- ☰ メニュー: 表示の切り替えと、設定ページへの入り口をまとめる ---------- */
-const MENU=[['news','🆕','お知らせ'],['file','📂','曲・アイデアのファイルを読み込む'],['share','📥','コピバン練習ノートの共有コードを読み込む'],['markers','🏷','マーカーの編集'],
+const MENU=[['news','🆕','お知らせ'],['file','📂','曲・アイデアのファイルを読み込む'],['share','📥','コピバン練習ノートの共有コードを読み込む'],['ai','🤖','AIでまとめる(APIキー)'],['markers','🏷','マーカーの編集'],
   ['backup','💾','バックアップ・復元'],['app','📱','スマホでアプリとして使う'],['tips','📝','使い方のコツ']];
 function menuDisp(){const th=S.prefs.theme||'auto';
   return `<div class="mdisp"><div class="mline"><span>テーマ</span><span class="mseg">${Object.entries(THEMES).map(([k,l])=>`<button class="${th===k?'on':''}" data-act="menuTheme" data-v="${k}">${l}</button>`).join('')}</span></div>
@@ -1612,7 +1613,7 @@ function bitClusters(list){const n=list.length,par=list.map((_,i)=>i);const f=i=
   return [...groups.values()].map(is=>{const cnt=new Map();is.forEach(i=>W[i].forEach(w=>{if(df.get(w)>=2&&df.get(w)<=lim)cnt.set(w,(cnt.get(w)||0)+1)}));
     const words=[...cnt].filter(([,c])=>c>=2).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([w])=>w.replace(/^#/,'#'));
     const bs=is.map(i=>list[i]).sort((a,b)=>b.ts-a.ts);return {bits:bs,words,last:bs[0].ts,first:bs[bs.length-1].ts}}).sort((a,b)=>b.last-a.last)}
-const groupName=c=>c.words.length?`「${c.words.join('・')}」まわり`:`${fmtDay(c.first)} ごろに投げ込んだもの`;
+const groupName=c=>c.title?c.title:c.words.length?`「${c.words.join('・')}」まわり`:`${fmtDay(c.first)} ごろに投げ込んだもの`;
 let WV='group',EDB=null,DUMP='';
 const isMedia=b=>b.kind==='audio'||b.kind==='photo';
 function bitHTML(b,inGroup){const k=BK[b.kind]||BK.memo;let body;
@@ -1627,20 +1628,21 @@ function bitHTML(b,inGroup){const k=BK[b.kind]||BK.memo;let body;
     ${inGroup?`<button class="ghost" data-act="bitSolo" data-id="${b.id}" title="このまとまりから外す">外す</button>`:b.solo?`<button class="ghost" data-act="bitSolo" data-id="${b.id}" title="またまとまりに入れる">つなぐ</button>`:''}
     <button class="ghost" data-act="bitDel" data-id="${b.id}" title="削除">✕</button></div>${body}</div>`}
 function groupHTML(c){const ids=c.bits.map(b=>b.id).join(',');
-  return `<div class="card bgroup"><div class="hstack bghead"><b>📦 ${esc(groupName(c))}</b><span class="sub">${c.bits.length}こ</span></div>
+  return `<div class="card bgroup ${c.title?'aig':''}"><div class="hstack bghead"><b>${c.title?'🤖':'📦'} ${esc(groupName(c))}</b><span class="sub">${c.bits.length}こ</span></div>${c.mood?`<div class="gmood">${esc(c.mood)}</div>`:''}
     <div class="hstack gto"><button class="primary" data-act="groupToIdea" data-ids="${ids}">💡 アイデアにまとめる</button>
-    ${ideas().length?`<select class="gsel"><option value="">今あるアイデアに入れる…</option>${ideas().map(x=>`<option value="${x.id}">${esc(ideaTitle(x))}</option>`).join('')}</select><button data-act="groupToExisting" data-ids="${ids}">入れる</button>`:''}</div>
+    ${ideas().length?`<select class="gsel"><option value="">今あるアイデアに入れる…</option>${ideas().map(x=>`<option value="${x.id}" ${c.idea===x.id?'selected':''}>${esc(ideaTitle(x))}${c.idea===x.id?'(AIのおすすめ)':''}</option>`).join('')}</select><button data-act="groupToExisting" data-ids="${ids}">入れる</button>`:''}</div>
     ${c.bits.map(b=>bitHTML(b,true)).join('')}</div>`}
 function inboxListHTML(){const all=bits(),showUsed=UI('bitUsed'),list=showUsed?all:all.filter(b=>!b.ideaId);
   if(!list.length)return `<div class="empty">${all.length?'未整理のかけらはありません':'まだ何もありません。思いついたことを上にどんどん投げ込んでください。<br>同じ言葉を使っているかけらや、続けて投げ込んだかけらは、自動で「まとまり」になります。'}</div>`;
   if(WV==='time')return list.slice().sort((a,b)=>b.ts-a.ts).map(b=>bitHTML(b,false)).join('');
+  if(WV==='ai')return aiListHTML(list);
   const cs=bitClusters(list),multi=cs.filter(c=>c.bits.length>1),single=cs.filter(c=>c.bits.length===1);
   return multi.map(groupHTML).join('')+(single.length?`<div class="sec">まだどれともつながっていないかけら ${single.length}</div>`+single.map(c=>bitHTML(c.bits[0],false)).join(''):'')}
 function viewInbox(){const open=bits().filter(b=>!b.ideaId).length,recOn=rec&&rec.target===INBOX;
   return topbar('inbox')+`<main>
   <div class="card dump"><textarea id="dumpIn" rows="3" data-input="dumpDraft" placeholder="なんでも投げ込む: 歌詞の一言・コード・メモ・URL…&#10;空行で区切ると別々のかけらになります">${esc(DUMP)}</textarea>
     <div class="hstack dumpbtns"><button class="primary" data-act="dumpGo">⬇ 投げ込む</button><button class="${recOn?'rec':''}" data-act="dumpRec">${recOn?'■ 止める <span id="recT">0:00</span>':'● 録音'}</button><button data-act="dumpFile">📷 写真・音声</button></div></div>
-  <div class="hstack wbar"><span class="mseg"><button class="${WV==='group'?'on':''}" data-act="wView" data-v="group">📦 まとまり</button><button class="${WV==='time'?'on':''}" data-act="wView" data-v="time">🕒 時間順</button></span>
+  <div class="hstack wbar"><span class="mseg"><button class="${WV==='group'?'on':''}" data-act="wView" data-v="group">📦 まとまり</button><button class="${WV==='ai'?'on':''}" data-act="wView" data-v="ai">🤖 AI</button><button class="${WV==='time'?'on':''}" data-act="wView" data-v="time">🕒 時間順</button></span>
     <span class="sub">未整理 ${open}</span><span class="spacer"></span><label class="sub"><input type="checkbox" data-change="bitUsed" ${UI('bitUsed')?'checked':''}> まとめたものも出す</label></div>
   <div id="bitList">${inboxListHTML()}</div></main>`}
 // かけらをアイデアに入れる: 種類ごとに歌詞・コード進行・メモへ足し、録音と写真はそのままアイデアのメモに移す
@@ -1670,6 +1672,61 @@ const INBOX_INP={
   bitText(t){const b=bitById(t.dataset.id);if(b)b.text=t.value},
   bitName(t){const b=bitById(t.dataset.id);if(b)b.name=t.value},
 };
+/* ---------- AIでまとめる(Claude API) ----------
+   倉庫のかけらをClaudeに見せて、意味・情景・雰囲気が近いもの同士でまとめてもらう。
+   APIキーはこの端末のブラウザ(localStorage)にだけ置く。バックアップやファイルには入れない */
+const AI_KEY_LS='kyokuidea-anthropic-key';
+const AI_MODEL='claude-opus-5-5';
+const AI_SDK='https://esm.sh/@anthropic-ai/sdk@0.133.0';
+function aiKey(){try{return localStorage.getItem(AI_KEY_LS)||''}catch(_){return ''}}
+function aiSetKey(v){try{v?localStorage.setItem(AI_KEY_LS,v):localStorage.removeItem(AI_KEY_LS)}catch(_){}}
+let AIBUSY=false,AICLIENT=null;
+async function aiClient(){const key=aiKey();if(!key)throw new Error('APIキーが入っていません(☰ メニュー → AIでまとめる)');
+  if(!AICLIENT||AICLIENT.k!==key){const {default:Anthropic}=await import(AI_SDK);
+    AICLIENT={k:key,c:new Anthropic({apiKey:key,dangerouslyAllowBrowser:true})}}return AICLIENT.c}
+const AI_SYSTEM=`あなたは作曲する人の相棒です。曲作りのメモ帳に投げ込まれた「かけら」(歌詞の断片・コード進行・メモ・リンク・録音・写真)を、意味・情景・感情・雰囲気が近いもの同士でまとめます。
+- 同じ単語が入っているかどうかではなく、情景や気分、物語のつながりで判断してください(例:「終電」と「始発を待つ」は同じ夜明け前の情景)。
+- コード進行は響き(明るい・切ない・浮遊感など)で、歌詞やメモの雰囲気と合うところに入れてください。
+- 録音・写真は中身が見えないので、名前と投げ込んだ時刻が近いかけらと一緒にしてください。
+- 1つのかけらは1つのまとまりにだけ入れます。どれとも合わないものは無理に入れず、1つだけのまとまりにして構いません。
+- まとまりの name は、その雰囲気が伝わる短い日本語(12文字くらいまで)。mood はそのまとまりの雰囲気や、曲にするならどんな方向かを一文で。
+- 今あるアイデアのどれかにはっきり近いまとまりは idea にそのID、なければ空文字。`;
+const AI_SCHEMA={type:'object',additionalProperties:false,required:['groups'],properties:{groups:{type:'array',items:{type:'object',additionalProperties:false,
+  required:['name','mood','bits','idea'],properties:{name:{type:'string'},mood:{type:'string'},bits:{type:'array',items:{type:'string'}},idea:{type:'string'}}}}}};
+async function aiGroupBits(){if(AIBUSY)return;const list=bits().filter(b=>!b.ideaId);if(list.length<2)return toast('かけらが2つ以上あるとまとめられます');
+  AIBUSY=true;render();
+  try{const client=await aiClient();const key=new Map(),back=new Map();list.forEach((b,i)=>{key.set(b.id,'k'+(i+1));back.set('k'+(i+1),b.id)});
+    const ib=new Map(),ibk=new Map();ideas().slice(0,40).forEach((x,i)=>{ib.set('i'+(i+1),x.id);ibk.set(x.id,'i'+(i+1))});
+    const lines=list.slice().sort((a,b)=>a.ts-b.ts).map(b=>`[${key.get(b.id)}] (${(BK[b.kind]||BK.memo).l}・${fmtDay(b.ts)}) ${isMedia(b)?(b.name||'名前なし'):b.text.replace(/\s+/g,' ').slice(0,300)}`);
+    const il=[...ib].map(([k,id])=>{const x=ideaById(id);return `[${k}] ${ideaTitle(x)}: ${[x.lyric,x.text].filter(Boolean).join(' / ').replace(/\s+/g,' ').slice(0,160)}`});
+    const res=await client.beta.messages.create({model:AI_MODEL,max_tokens:16000,betas:['server-side-fallback-2026-07-01'],fallbacks:'default',system:AI_SYSTEM,
+      output_config:{format:{type:'json_schema',schema:AI_SCHEMA}},
+      messages:[{role:'user',content:`かけら:\n${lines.join('\n')}\n\n今あるアイデア:\n${il.join('\n')||'(なし)'}`}]});
+    if(res.stop_reason==='refusal')throw new Error('AIがこの内容のまとめを断りました');
+    if(res.stop_reason==='max_tokens')throw new Error('かけらが多すぎて答えが途中で切れました');
+    const txt=res.content.filter(c=>c.type==='text').map(c=>c.text).join('');const out=JSON.parse(txt);const seen=new Set();
+    const groups=(out.groups||[]).map(g=>({name:String(g.name||'').slice(0,30),mood:String(g.mood||'').slice(0,120),
+      ids:(g.bits||[]).map(k=>back.get(k)).filter(id=>id&&!seen.has(id)&&seen.add(id)),idea:ib.get(g.idea)||''})).filter(g=>g.ids.length);
+    S.aiGroups={at:Date.now(),groups};WV='ai';save();toast(`AIが${groups.length}このまとまりに分けました`)}
+  catch(e){const st=e&&e.status;alert('AIでまとめられませんでした: '+(st===401?'APIキーが違うようです':st===429?'混み合っています。少し待ってからもう一度':st===529||st>=500?'Claudeが混み合っています。少し待ってからもう一度':e.message||e))}
+  finally{AIBUSY=false;render()}}
+// AIのまとまりを、今の倉庫の中身に合わせて取り出す(まとめ済み・削除済みのかけらは外す)
+function aiClusters(list){const ag=S.aiGroups;if(!ag)return {cs:[],rest:list};const byId=new Map(list.map(b=>[b.id,b])),used=new Set();
+  const cs=ag.groups.map(g=>{const bs=g.ids.map(id=>byId.get(id)).filter(Boolean);bs.forEach(b=>used.add(b.id));
+    return bs.length?{bits:bs.sort((a,b)=>b.ts-a.ts),words:[],title:g.name,mood:g.mood,idea:g.idea,first:Math.min(...bs.map(b=>b.ts)),last:Math.max(...bs.map(b=>b.ts))}:null}).filter(Boolean);
+  return {cs,rest:list.filter(b=>!used.has(b.id))}}
+function aiListHTML(list){if(!aiKey())return `<div class="card"><b>🤖 AIで意味・雰囲気でまとめる</b><p class="note">Claude(Anthropic)のAPIキーを入れると、かけらを情景や気分の近さでまとめてもらえます。<a href="#/settings/ai" style="color:var(--accent)">キーを入れる ›</a></p></div>`;
+  const {cs,rest}=aiClusters(list),ag=S.aiGroups;
+  const head=`<div class="card aibar"><div class="hstack"><b>🤖 AIのまとまり</b><span class="sub">${ag?fmtDay(ag.at)+' にまとめた':'まだまとめていません'}</span><span class="spacer"></span>
+    <button class="primary" data-act="aiRun" ${AIBUSY?'disabled':''}>${AIBUSY?'考え中…':ag?'もう一度まとめる':'まとめてもらう'}</button></div>
+    ${AIBUSY?'<p class="sub" style="margin:6px 0 0">Claudeがかけらを読んでいます。数十秒かかることがあります</p>':''}</div>`;
+  return head+cs.map(c=>groupHTML(c)).join('')+(ag&&rest.length?`<div class="sec">AIにまだ見せていないかけら ${rest.length}</div>`+rest.map(b=>bitHTML(b,false)).join(''):'')}
+const AI_ACT={
+  aiRun(){aiGroupBits()},
+  aiSave(){const v=($('#aiKeyIn')||{}).value||'';aiSetKey(v.trim());AICLIENT=null;render();toast(v.trim()?'保存しました':'キーを消しました')},
+  aiClear(){aiSetKey('');AICLIENT=null;render();toast('キーを消しました')},
+};
+
 const INBOX_CHG={bitUsed(t){S.prefs.ui=S.prefs.ui||{};S.prefs.ui.bitUsed=t.checked;render()}};
 
 const IDEA_ACT={
@@ -1723,7 +1780,13 @@ function gBuild(){const src=gSources(),map=new Map();
   const W=[...map].filter(([,a])=>a.length>=min).sort((a,b)=>b[1].length-a[1].length).slice(0,160);
   const used=new Set(W.flatMap(([,a])=>a.map(s=>s.id)));
   const nodes=[...src.filter(s=>used.has(s.id)).map(s=>({id:s.id,t:'src',s,label:s.title})),...W.map(([w,a])=>({id:'w:'+w,t:'word',w,label:w,deg:a.length}))];
-  return {nodes,edges:W.flatMap(([w,a])=>a.map(s=>['w:'+w,s.id])),src,map}}
+  const edges=W.flatMap(([w,a])=>a.map(s=>['w:'+w,s.id]));
+  // AIのまとまり: まとまりの名前を点にして、そのかけら(まとめ済みならそのアイデア)とつなぐ
+  if(S.prefs.gAI!==false&&S.aiGroups){const have=new Map(src.map(s=>[s.id,s]));
+    S.aiGroups.groups.forEach((g,gi)=>{const ids=[...new Set(g.ids.map(id=>{const b=bitById(id);return !b?null:b.ideaId?'i:'+b.ideaId:'b:'+b.id}).filter(id=>id&&have.has(id)))];
+      if(ids.length<2)return;const id='a:'+gi;ids.forEach(s=>{if(!nodes.some(n=>n.id===s))nodes.push({id:s,t:'src',s:have.get(s),label:have.get(s).title});edges.push([id,s])});
+      nodes.push({id,t:'word',w:g.name,label:'🤖'+g.name,deg:ids.length,ai:g})})}
+  return {nodes,edges,src,map}}
 let GPOS={},GSEL=null,GVB=null,GCUR=null,GLAST=null;
 function gLayout(g){const N=g.nodes,idx=new Map(N.map((n,i)=>[n.id,i])),k=70;let fresh=0;
   N.forEach((n,i)=>{const p=GPOS[n.id];if(p){n.x=p.x;n.y=p.y}else{fresh++;const a=i*2.399,r=36*Math.sqrt(i+1);n.x=Math.cos(a)*r;n.y=Math.sin(a)*r}});
@@ -1737,7 +1800,7 @@ function gLayout(g){const N=g.nodes,idx=new Map(N.map((n,i)=>[n.id,i])),k=70;let
 function gFit(N){if(!N.length)return [-200,-150,400,300];const xs=N.map(n=>n.x),ys=N.map(n=>n.y),pad=70;
   const x0=Math.min(...xs)-pad,y0=Math.min(...ys)-pad,w=Math.max(...xs)+pad-x0,h=Math.max(...ys)+pad-y0;return [x0,y0,Math.max(w,300),Math.max(h,240)]}
 const gR=n=>n.t==='word'?6+Math.min(10,n.deg*2.2):0;
-function gNodeSVG(n,on){const cls=`gn ${n.t} ${n.s?n.s.kind:''} ${on===false?'dim':''} ${GSEL===n.id?'sel':''}`;
+function gNodeSVG(n,on){const cls=`gn ${n.t} ${n.ai?'aiw':''} ${n.s?n.s.kind:''} ${on===false?'dim':''} ${GSEL===n.id?'sel':''}`;
   if(n.t==='word')return `<g class="${cls}" data-gid="${esc(n.id)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})"><circle r="${gR(n)}"></circle><text y="${gR(n)+14}" text-anchor="middle">${esc(n.label)}</text></g>`;
   const lb=n.label.length>12?n.label.slice(0,12)+'…':n.label,w=lb.length*13+20;
   return `<g class="${cls}" data-gid="${esc(n.id)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})"><rect x="${-w/2}" y="-14" width="${w}" height="28" rx="14"></rect><text y="5" text-anchor="middle">${GICON[n.s.kind]}${esc(lb)}</text></g>`}
@@ -1748,6 +1811,8 @@ function gSVG(g){const near=new Set();if(GSEL){near.add(GSEL);g.edges.forEach(([
   return lines+g.nodes.map(n=>gNodeSVG(n,GSEL?near.has(n.id):undefined)).join('')}
 function gMark(text,w){const e=esc(text);if(!w)return e;const re=new RegExp(esc(w).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');return e.replace(re,m=>`<mark>${m}</mark>`)}
 function gInfoHTML(g){if(!GSEL)return `<p class="sub" style="margin:0">言葉(丸)を押すと、その言葉を使っている断片がここに並びます。断片(💡・🎵)を押すと、そこから出ている言葉が光ります。ドラッグで動かす・2本指やホイールで拡大縮小。</p>`;
+  if(GSEL.startsWith('a:')){const n=g.nodes.find(x=>x.id===GSEL);if(!n)return '';const ss=g.edges.filter(e=>e[0]===GSEL).map(e=>g.src.find(s=>s.id===e[1])).filter(Boolean);
+    return `<b>🤖 ${esc(n.ai.name)}</b><div class="gmood">${esc(n.ai.mood)}</div>${ss.map(s=>`<div class="gitem"><a href="${s.href}">${GICON[s.kind]} ${esc(s.title)}</a><div class="gline" style="white-space:pre-line">${esc(s.text.slice(0,120))}</div></div>`).join('')}`}
   if(GSEL.startsWith('w:')){const w=GSEL.slice(2),list=g.map.get(w)||[];
     return `<b>「${esc(w)}」が出てくる断片 ${list.length}</b>${list.map(s=>{const ls=s.text.split('\n').filter(l=>l.toLowerCase().includes(w));
       return `<div class="gitem"><a href="${s.href}">${GICON[s.kind]} ${esc(s.title)}</a>${ls.slice(0,4).map(l=>`<div class="gline">${gMark(l,w)}</div>`).join('')}</div>`}).join('')}`}
@@ -1759,7 +1824,8 @@ function gInfoHTML(g){if(!GSEL)return `<p class="sub" style="margin:0">言葉(�
 function viewGraph(){const g=gBuild();GCUR=g;const p=S.prefs;
   if(R.a&&R.a!==GLAST){GSEL='i:'+R.a;GLAST=R.a}if(!R.a)GLAST=null;if(GSEL&&!g.nodes.some(n=>n.id===GSEL))GSEL=null;
   gLayout(g);if(!GVB)GVB=gFit(g.nodes);
-  const opts=`<div class="hstack gopts"><label class="sub"><input type="checkbox" data-change="gOpt" data-k="gBits" ${p.gBits!==false?'checked':''}> 倉庫のかけらも入れる</label>
+  const opts=`<div class="hstack gopts"><label class="sub"><input type="checkbox" data-change="gOpt" data-k="gAI" ${p.gAI!==false?'checked':''}> AIのまとまりも出す</label>
+    <label class="sub"><input type="checkbox" data-change="gOpt" data-k="gBits" ${p.gBits!==false?'checked':''}> 倉庫のかけらも入れる</label>
     <label class="sub"><input type="checkbox" data-change="gOpt" data-k="gMemo" ${p.gMemo?'checked':''}> メモも入れる</label>
     <label class="sub"><input type="checkbox" data-change="gOpt" data-k="gSong" ${p.gSong!==false?'checked':''}> 曲の歌詞も入れる</label>
     <label class="sub"><input type="checkbox" data-change="gOpt" data-k="gAll" ${p.gAll?'checked':''}> 1か所だけの言葉も出す</label>
@@ -2133,7 +2199,7 @@ function wbrize(el){if(!el)return;el.classList.add('bunsetsu');if(!WBRIZE_ON)ret
 const WBRIZE_ON=false;
 /* ---------- お知らせ(更新情報) ---------- 新しいものを上に足していく */
 const NEWS=[
-  {d:'2026-10-23',items:['曲作りアイデア帳をはじめました(コピバン練習ノートの自分用版)','アイデア: すぐ録音・書きとめる・写真で、思いついたことをすぐ残せます','アイデアから「曲にする」で、コピバン練習ノートと同じ構成・コード・メモの画面で曲を組めます','曲とアイデアを写真・録音ごと1つのファイル(.songnote.json)で送ったり読み込んだりできます','🕸 ことばのつながり: 歌詞の断片を言葉に分けて、同じ言葉を使っている断片どうしをつないで見られます(上の「つながり」)','📦 倉庫: 歌詞・コード・メモ・URL・録音・写真をとりあえず投げ込むと、種類を見分けて、似たものを「まとまり」にしてくれます。まとまりはボタン1つでアイデアに']}];
+  {d:'2026-10-23',items:['曲作りアイデア帳をはじめました(コピバン練習ノートの自分用版)','アイデア: すぐ録音・書きとめる・写真で、思いついたことをすぐ残せます','アイデアから「曲にする」で、コピバン練習ノートと同じ構成・コード・メモの画面で曲を組めます','曲とアイデアを写真・録音ごと1つのファイル(.songnote.json)で送ったり読み込んだりできます','🕸 ことばのつながり: 歌詞の断片を言葉に分けて、同じ言葉を使っている断片どうしをつないで見られます(上の「つながり」)','📦 倉庫: 歌詞・コード・メモ・URL・録音・写真をとりあえず投げ込むと、種類を見分けて、似たものを「まとまり」にしてくれます。まとまりはボタン1つでアイデアに','🤖 AIでまとめる: Claude のAPIキーを入れると、かけらを意味・情景・雰囲気の近さでまとめてもらえます(倉庫の「🤖 AI」)。つながりの画面にもAIのまとまりが出ます']}];
 const newsUnseen=()=>(S.prefs.newsSeen||'')<NEWS[0].d;
 function newsCard(){const open=UI('newsAll'),list=open?NEWS:NEWS.slice(0,1);
   return `<div class="card"><b>🆕 お知らせ(不具合修正・アップデート)</b>
@@ -2147,6 +2213,13 @@ function viewSettings(){const k=R.a;
   const m=MENU.find(x=>x[0]===k)||['','',''];const C=settingCards();
   return topbar('settings')+`<main><a class="backlink" href="javascript:void 0" data-act="goBack">‹ 戻る</a><h1>${m[1]} ${m[2]}</h1>${C[k]||'<div class="empty">見つかりません</div>'}</main>`}
 function settingCards(){return {news:newsCard(),
+  ai:`<div class="card"><b>🤖 AIでまとめる</b><p class="note">倉庫の「🤖 AI」で、かけらを意味・情景・雰囲気の近さでまとめてもらえます。使うのは Claude(Anthropic)のAPIで、モデルは Claude Opus 5.5 です。<br>
+    ・APIキーは <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">Anthropic Console</a> で作れます。料金はAPIの使った分だけかかります(かけら数十こなら1回数円〜十数円くらい)。<br>
+    ・キーはこの端末のブラウザの中にだけ保存されます。バックアップやファイルには入りません。スマホとPCで使うなら、それぞれで入れてください。<br>
+    ・まとめるときは、未整理のかけらの文章(録音・写真は名前だけ)とアイデアの題名・歌詞の一部がAnthropicに送られます。</p>
+    <div class="hstack" style="margin-top:8px;gap:6px;flex-wrap:wrap"><input id="aiKeyIn" type="password" autocomplete="off" placeholder="${aiKey()?'保存済み(変えるときだけ入れる)':'sk-ant- で始まるキー'}" style="flex:1;min-width:200px">
+    <button class="primary" data-act="aiSave">保存</button>${aiKey()?'<button class="ghost" data-act="aiClear">キーを消す</button>':''}</div>
+    <p class="sub" style="margin:6px 0 0">${aiKey()?'✓ キーが入っています':'まだキーが入っていません'}</p></div>`,
   file:`<div class="card"><b>曲・アイデアのファイル</b><p class="note">「📤 ファイルで送る」で作った <b>.songnote.json</b> を読み込みます。写真・録音も入っています。同じ曲・アイデアがすでにあるときは、ファイルの内容で上書きします(作っている音楽アプリとやり取りするときもこの形です)。<br>コピバン練習ノートのバックアップファイルを選ぶと、その中の曲を「曲」に追加できます。</p>
     <div class="hstack"><button class="primary" data-act="import">ファイルを選ぶ</button></div></div>`,
   band:`<div class="card"><b>バンド・サークル</b><p class="note">サークルでコピバンを組む人はサークル名、オリジナルバンドやサポートの人はそのバンド名にしておくと、掛け持ちしていても分けて管理できます。</p>
@@ -2382,7 +2455,7 @@ const ACT={
   bMark(t){const b=curSong().blocks.find(x=>x.id===t.dataset.id);b.start=Math.round(M.time()*10)/10;save();render();toast(`「${b.name}」の頭を ${fmtT(b.start)} にしました`)},
   pickFiles(){pickMode='memo';const f=$('#filePick');f.accept='image/*,audio/*,video/*';f.value='';f.click()},
   rec:()=>toggleRec(),
-  ...IDEA_ACT,...GRAPH_ACT,...INBOX_ACT,
+  ...IDEA_ACT,...GRAPH_ACT,...INBOX_ACT,...AI_ACT,
   addText(){curBlock().memos.push({id:uid(),kind:'text',text:'',ts:Date.now()});render();const a=document.querySelectorAll('textarea');a[a.length-1]?.focus()},
   delMemo(t){const {m,b}=findMemo(t.dataset.id);if(!m||!confirm('このメモを削除しますか？'))return;if(m.blobId)delBlob(m.blobId);b.memos=b.memos.filter(x=>x!==m);render()},
   async lb(t){$('#overlay').innerHTML=`<div class="lb" data-act="lbClose"><img src="${await blobURL(t.dataset.id)}" data-act="lbZoom"></div><button class="lbx" data-act="lbClose">✕</button>`},
