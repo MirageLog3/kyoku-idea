@@ -236,10 +236,19 @@ h1{font-size:24px;margin:4px 0 6px}
 #gsvg{--gk:1}#gsvg .gn>*{transform:scale(var(--gk))}#gsvg line{vector-effect:non-scaling-stroke;stroke:var(--muted);stroke-width:1.2;opacity:.55}#gsvg line.hot{stroke:var(--accent);opacity:.9;stroke-width:2}#gsvg line.dim{opacity:.1}
 #gsvg .gn{cursor:pointer}#gsvg .gn text{fill:var(--text);font-size:13px;pointer-events:none}
 #gsvg .word circle{fill:var(--accent);fill-opacity:.85;stroke:var(--bg);stroke-width:2}
-#gsvg .src rect{fill:var(--panel2);stroke:#e0b13a;stroke-width:1.5}#gsvg .src.song rect{stroke:#4a8fd6}#gsvg .src text{font-size:12px}
+#gsvg .src rect{fill:var(--panel2);stroke:#e0b13a;stroke-width:1.5}#gsvg .src.song rect{stroke:#4a8fd6}#gsvg .src.bit rect{stroke:#8a9a6a;stroke-dasharray:3 2}#gsvg .src text{font-size:12px}
 #gsvg .gn.dim{opacity:.18}#gsvg .gn.sel circle,#gsvg .gn.sel rect{stroke:var(--text);stroke-width:3}
 .ginfo{margin-top:10px}.gitem{margin-top:10px}.gitem a{color:var(--accent);font-weight:600}.gline{font-size:14px;margin-top:2px}
 .ginfo mark{background:#ff6a2b44;color:inherit;border-radius:3px;padding:0 1px}.gchip{margin:4px 4px 0 0;padding:4px 10px;border-radius:14px}
+.dump{padding:10px}.dump textarea{width:100%;min-height:78px;resize:vertical;font-size:15px}.dumpbtns{margin-top:8px;gap:8px}.dumpbtns button{flex:1 1 0;padding:10px 6px}
+.wbar{flex-wrap:wrap;gap:6px 10px;margin:12px 0 4px}
+.bit{border:1px solid var(--line);border-radius:10px;padding:7px 10px 9px;margin:8px 0;background:var(--panel)}.bgroup .bit{background:var(--panel2);margin:8px 0 0}.bit.used{opacity:.55}
+.bithead{display:flex;align-items:center;gap:4px 6px;flex-wrap:wrap}.bithead .ghost{padding:2px 6px}.bitmeta{font-size:12px}.bitmeta a{color:var(--accent)}
+.bitk{font-size:12px;padding:1px 8px;border-radius:10px;background:none}.bitk:disabled{cursor:default;opacity:1}
+.k-lyric{border-color:#e0b13a;color:#e0b13a}.k-chord{border-color:#4a8fd6;color:#4a8fd6}.k-link{border-color:#2fa58c;color:#2fa58c}.k-audio{border-color:#c0392b;color:#e0604f}.k-photo{border-color:#a57fd0;color:#a57fd0}
+.bittx{white-space:pre-wrap;margin-top:5px;word-break:break-word;line-height:1.55}.bittx.mono{font-family:ui-monospace,Consolas,monospace}.bittx a{color:var(--accent);word-break:break-all}
+.bitta{width:100%;margin-top:5px}.bitimg{max-width:100%;max-height:220px;border-radius:8px;margin-top:6px;cursor:zoom-in;display:block}.bit audio{width:100%;margin-top:5px}.bitname{width:100%;margin-top:5px}
+.bgroup{border-left:4px solid var(--accent)}.bghead{gap:8px}.gto{margin:8px 0 2px;gap:6px;flex-wrap:wrap}.gto select{flex:1 1 140px;min-width:0}
 .ifrom{font-size:13px;color:var(--sub);margin:2px 0 6px}.ifrom a{color:var(--accent);margin-right:8px}
 .rowbtns{display:flex;gap:2px;opacity:.35}
 .row:hover .rowbtns{opacity:1}
@@ -576,7 +585,7 @@ const putBlob=(id,b)=>idb('blobs','readwrite',s=>s.put(b,id));
 const getBlob=id=>idb('blobs','readonly',s=>s.get(id));
 // 写真・音源は「元に戻す」で復活できるように、その場では消さない。次に開いたときに、どこからも使われていないものだけ片付ける
 const delBlob=()=>{};
-async function gcBlobs(){try{const keys=await idb('blobs','readonly',s=>s.getAllKeys());const used=new Set([...songBlobIds(S.songs),...ideaBlobIds(ideas())]);
+async function gcBlobs(){try{const keys=await idb('blobs','readonly',s=>s.getAllKeys());const used=new Set([...songBlobIds(S.songs),...ideaBlobIds(ideas()),...bits().filter(b=>b.blobId).map(b=>b.blobId)]);
   const drop=(keys||[]).filter(k=>!used.has(k));if(drop.length)await idb('blobs','readwrite',s=>{drop.forEach(k=>s.delete(k))})}catch(_){}}
 let saveT;
 let DEMO=null; // 案内用の見本を表示中(このあいだは保存しない)
@@ -584,12 +593,12 @@ function save(){if(DEMO)return;histTrack();clearTimeout(saveT);saveT=setTimeout(
 /* ---------- 元に戻す・やり直す ----------
    保存のたびに曲・セトリなどの中身を比べて、変わっていたら前の状態を積む。0.8秒以内の連続した変更(文字入力など)は1回分にまとめる */
 const H={past:[],future:[],last:null,t:0,busy:false};
-const histSnap=()=>JSON.stringify([S.bands,S.songs,S.setlists,S.markers]);
+const histSnap=()=>JSON.stringify([S.bands,S.songs,S.setlists,S.markers,S.ideas||[],S.bits||[]]);
 function histTrack(){if(H.busy||!S)return;const cur=histSnap();if(H.last===null){H.last=cur;return}if(cur===H.last)return;
   if(Date.now()-H.t>800||!H.past.length){H.past.push(H.last);if(H.past.length>100)H.past.shift()}
   H.future=[];H.last=cur;H.t=Date.now();histBtns()}
 function histBtns(){const u=$('#undoB'),r=$('#redoB');if(u)u.disabled=!H.past.length;if(r)r.disabled=!H.future.length}
-function histApply(json){H.busy=true;const [b,s,sl,m]=JSON.parse(json);Object.assign(S,{bands:b,songs:s,setlists:sl,markers:m});H.last=json;H.t=0;
+function histApply(json){H.busy=true;const [b,s,sl,m,id,bt]=JSON.parse(json);Object.assign(S,{bands:b,songs:s,setlists:sl,markers:m,ideas:id||[],bits:bt||[]});H.last=json;H.t=0;
   $('#overlay').innerHTML='';
   if((R.name==='song'||R.name==='block'||R.name==='print')&&!songById(R.a)){P=null;H.busy=false;location.hash='#/songs';return}
   if(P){const bl=curBlock();P=bl&&bl.bars[P.bar]?Object.assign(parseChord(bl.bars[P.bar].cells[P.slot]||''),{bar:P.bar,slot:P.slot}):null}
@@ -619,7 +628,7 @@ function memoBlobIds(blocks){return blocks.flatMap(b=>b.memos.filter(m=>m.blobId
 function songBlobIds(songs){return [...memoBlobIds(songs.flatMap(s=>s.blocks)),...songs.filter(s=>s.audio).map(s=>s.audio.blobId)]}
 
 /* ---------- route ---------- */
-function route(){const p=location.hash.replace(/^#\/?/,'').split('/');return {name:p[0]||'ideas',a:p[1],b:p[2],c:p[3]}}
+function route(){const p=location.hash.replace(/^#\/?/,'').split('/');return {name:p[0]||'inbox',a:p[1],b:p[2],c:p[3]}}
 let R={};
 let P=null;   // chord picker state
 let rec=null; // recorder
@@ -638,7 +647,8 @@ function render(){
   else if(R.name==='idea')html=viewIdea();
   else if(R.name==='graph')html=viewGraph();
   else if(R.name==='setlist')html=viewSetlist();
-  else html=viewIdeas();
+  else if(R.name==='ideas')html=viewIdeas();
+  else html=viewInbox();
   $('#app').innerHTML=html;
   renderSheet();
   syncPlayer();
@@ -654,7 +664,7 @@ const ICON_REDO='<svg viewBox="0 0 24 24" width="20" height="20" fill="currentCo
 function topbar(tab){
   const opts=S.bands.map(b=>`<option value="${b.id}" ${b.id===band().id?'selected':''}>${esc(b.name)}</option>`).join('');
   return `<header class="top"><div class="brand">💡<span class="brand-t"> 曲作りアイデア帳</span></div>
-  <nav><a href="#/ideas" class="${tab==='ideas'?'on':''}">アイデア</a><a href="#/songs" class="${tab==='songs'?'on':''}">曲</a><a href="#/graph" class="${tab==='graph'?'on':''}">つながり</a></nav>
+  <nav><a href="#/inbox" class="${tab==='inbox'?'on':''}">倉庫</a><a href="#/ideas" class="${tab==='ideas'?'on':''}">アイデア</a><a href="#/songs" class="${tab==='songs'?'on':''}">曲</a><a href="#/graph" class="${tab==='graph'?'on':''}">つながり</a></nav>
   <span class="histbtns"><button class="ghost" id="undoB" data-act="undo" title="元に戻す (Ctrl+Z)" aria-label="元に戻す" ${H.past.length?'':'disabled'}>${ICON_UNDO}</button><button class="ghost" id="redoB" data-act="redo" title="やり直す (Ctrl+Y)" aria-label="やり直す" ${H.future.length?'':'disabled'}>${ICON_REDO}</button></span>
   <button class="ghost menubtn ${tab==='settings'?'on':''}" data-act="menuOpen" title="メニュー(表示・バンド・共有コード・バックアップなど)">☰${newsUnseen()?'<span class="newdot"></span>':''}</button></header>`}
 /* ---------- ☰ メニュー: 表示の切り替えと、設定ページへの入り口をまとめる ---------- */
@@ -1446,7 +1456,7 @@ document.addEventListener('pointerup',endBoard);document.addEventListener('point
 document.addEventListener('wheel',e=>{if(!e.ctrlKey||!(e.target.closest&&e.target.closest('#boardWrap')))return;e.preventDefault();setBZ(BZ*(e.deltaY<0?1.1:1/1.1))},{passive:false});
 window.addEventListener('resize',()=>layoutBoard());
 const stamp=()=>{const d=new Date();return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`};
-async function addMemoBlob(bl,kind,blob,name){const id=uid();await putBlob(id,blob);bl.memos.push({id:uid(),kind,blobId:id,name,ts:Date.now()});save()}
+async function addMemoBlob(bl,kind,blob,name){const id=uid();await putBlob(id,blob);if(bl.isInbox){bits().unshift(newBit({kind,blobId:id,name}));save();return}bl.memos.push({id:uid(),kind,blobId:id,name,ts:Date.now()});save()}
 async function handleFiles(files,target){const bl=target||curBlock()||curIdea();if(!bl)return;let n=0;
   for(const f of files){if(f.type.startsWith('image/')){await addMemoBlob(bl,'photo',f,f.name&&f.name!=='image.png'?f.name.replace(/\.\w+$/,''):'');n++}
     else if(f.type.startsWith('audio/')||f.type.startsWith('video/')){await addMemoBlob(bl,'audio',f,f.name.replace(/\.\w+$/,''));n++}}
@@ -1489,8 +1499,7 @@ function ideaListHTML(){const q=IQ.trim().toLowerCase();
   return list.map(ideaCard).join('')||'<div class="empty">当てはまるアイデアがありません</div>'}
 function viewIdeas(){const cnt=k=>ideas().filter(x=>x.status===k).length;
   return topbar('ideas')+`<main>
-  <div class="qcap"><button class="qrec ${rec&&rec.quick?'rec':''}" data-act="quickRec">${rec&&rec.quick?'■ 止める <span id="recT">0:00</span>':'● すぐ録音'}</button>
-    <button data-act="quickText">📝 書きとめる</button><button data-act="quickPhoto">📷 写真</button></div>
+  <div class="hstack" style="gap:10px;flex-wrap:wrap"><button class="primary" data-act="quickText">＋ 新しいアイデア</button><span class="sub" style="flex:1;min-width:180px">思いつきは「倉庫」に投げ込んでおいて、まとまってきたらアイデアにするのがおすすめ</span></div>
   <div class="hstack ifilter"><input type="search" placeholder="🔍 さがす(タイトル・メモ・タグ)" value="${esc(IQ)}" data-input="ideaQ" style="flex:1 1 180px;min-width:0">
     <span class="mseg">${[['','すべて '+ideas().length],...Object.entries(ISTAT).map(([k,v])=>[k,`${v.i}${v.l} ${cnt(k)}`])].map(([k,l])=>`<button class="${IF===k?'on':''}" data-act="ideaFilter" data-v="${k}">${l}</button>`).join('')}</span></div>
   <div class="list cards" id="ideaList">${ideaListHTML()}</div></main>`}
@@ -1568,6 +1577,101 @@ async function importSongNote(j){const songs=(j.songs||[]).map(normSong),xs=(j.i
   ensureMarkers(songs.flatMap(s=>s.blocks.flatMap(b=>b.tags)));save();
   location.hash=songs.length===1&&!xs.length?'#/song/'+songs[0].id:xs.length===1&&!songs.length?'#/idea/'+xs[0].id:songs.length?'#/songs':'#/ideas';
   render();toast('読み込みました')}
+/* ---------- 倉庫(かけらを投げ込む) ----------
+   歌詞の一言・コード・メモ・URL・録音・写真を「かけら」として何も考えずに放り込む。
+   種類は中身から推測し、同じ言葉を使っているかけらや続けて投げ込んだかけらを自動で「まとまり」にする */
+const BK={lyric:{l:'歌詞',i:'✍'},chord:{l:'コード',i:'🎹'},memo:{l:'メモ',i:'📝'},link:{l:'リンク',i:'🔗'},audio:{l:'録音',i:'🎙'},photo:{l:'写真',i:'📷'}};
+const BK_CYCLE=['lyric','chord','memo','link'];
+const bits=()=>S.bits||(S.bits=[]);
+const bitById=id=>bits().find(b=>b.id===id);
+const INBOX={isInbox:true,memos:[]};
+const CHORD_RE=/^⌒?[A-G][#b♯♭]?(?:maj|min|dim|aug|sus|add|M|m|ø|°|\+|-|\d|\(|\)|,|b|#|♭|♯)*(?:\/[A-G][#b♯♭]?)?$/;
+function bitGuess(t){const s=t.trim();if(/https?:\/\//.test(s))return 'link';
+  const tk=s.split(/[\s|｜]+/).filter(x=>x&&!/^[-–—()（）x×\d.:]+$/.test(x));const ch=tk.filter(x=>CHORD_RE.test(x)).length;
+  if(ch>=2&&ch/tk.length>=.6)return 'chord';
+  if(/(メモ|bpm|テンポ|キー|key|感じ|っぽ|みたい|参考|アレンジ|ドラム|ベース|ギター|イントロ|サビ|[ab]メロ|間奏|リフ|コード|転調|したい|かも|入れる|にする)/i.test(s))return 'memo';
+  return /[ぁ-んァ-ヶ一-龠]/.test(s)&&!/[。]$/.test(s)?'lyric':'memo'}
+function bitMeta(t){const b=t.match(/(?:bpm|♩|テンポ)\s*[=:：]?\s*(\d{2,3})|(\d{2,3})\s*bpm/i);
+  const k=t.match(/(?:key|キー)\s*[=:：は]?\s*([A-G][#b♯♭]?m?)(?![a-z])/i);
+  return {bpm:b?(b[1]||b[2]):'',key:k?k[1]:'',tags:[...t.matchAll(/[#＃]([^\s#＃]+)/g)].map(m=>m[1])}}
+function newBit(o){return Object.assign({id:uid(),ts:Date.now(),kind:'memo',text:'',ideaId:null,solo:false,bpm:'',key:'',tags:[]},o)}
+function throwIn(raw){const chunks=raw.replace(/\r/g,'').split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+  chunks.slice().reverse().forEach(c=>bits().unshift(newBit({kind:bitGuess(c),text:c,...bitMeta(c)})));return chunks.length}
+// まとまり: 5分以内に続けて投げ込んだもの・同じ言葉(または #タグ)を使っているものをつなぐ。どこにでも出てくる言葉はつなぎに使わない
+function bitClusters(list){const n=list.length,par=list.map((_,i)=>i);const f=i=>par[i]===i?i:(par[i]=f(par[i]));const u=(a,b)=>{a=f(a);b=f(b);if(a!==b)par[a]=b};
+  const ord=list.map((b,i)=>[b.ts,i]).sort((a,b)=>a[0]-b[0]);
+  for(let k=1;k<ord.length;k++){const [t0,i]=ord[k-1],[t1,j]=ord[k];if(t1-t0<5*60e3&&!list[i].solo&&!list[j].solo)u(i,j)}
+  const W=list.map(b=>b.solo||!b.text?[]:[...new Set([...(b.kind==='chord'?[]:gWords(b.text.replace(/https?:\/\/\S+/g,'').replace(/[#＃][^\s#＃]+/g,''))),...(b.tags||[]).map(t=>'#'+t)])]);
+  // 「坂道」と「坂」のように、短い漢字の言葉がほかのかけらに単独で出てくるときは、熟語の中の1文字もつなぎに使う
+  const singles=new Set(W.flat().filter(w=>/^[一-龠々]$/.test(w)));
+  W.forEach((ws,i)=>{const add=[];ws.forEach(w=>{if(/^[一-龠々]{2,3}$/.test(w))[...w].forEach(c=>{if(singles.has(c)&&!ws.includes(c))add.push(c)})});W[i]=[...new Set([...ws,...add])]});
+  const df=new Map();W.forEach(ws=>ws.forEach(w=>df.set(w,(df.get(w)||0)+1)));
+  const lim=Math.max(3,n*.4),owner=new Map();
+  W.forEach((ws,i)=>ws.forEach(w=>{const c=df.get(w);if(c<2||c>lim)return;if(owner.has(w))u(i,owner.get(w));else owner.set(w,i)}));
+  const groups=new Map();list.forEach((b,i)=>{const r=f(i);if(!groups.has(r))groups.set(r,[]);groups.get(r).push(i)});
+  return [...groups.values()].map(is=>{const cnt=new Map();is.forEach(i=>W[i].forEach(w=>{if(df.get(w)>=2&&df.get(w)<=lim)cnt.set(w,(cnt.get(w)||0)+1)}));
+    const words=[...cnt].filter(([,c])=>c>=2).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([w])=>w.replace(/^#/,'#'));
+    const bs=is.map(i=>list[i]).sort((a,b)=>b.ts-a.ts);return {bits:bs,words,last:bs[0].ts,first:bs[bs.length-1].ts}}).sort((a,b)=>b.last-a.last)}
+const groupName=c=>c.words.length?`「${c.words.join('・')}」まわり`:`${fmtDay(c.first)} ごろに投げ込んだもの`;
+let WV='group',EDB=null,DUMP='';
+const isMedia=b=>b.kind==='audio'||b.kind==='photo';
+function bitHTML(b,inGroup){const k=BK[b.kind]||BK.memo;let body;
+  if(b.kind==='audio')body=`<input class="bitname" value="${esc(b.name||'')}" data-input="bitName" data-id="${b.id}" placeholder="名前"><audio controls preload="metadata" data-blob="${b.blobId}"></audio>`;
+  else if(b.kind==='photo')body=`<img class="bitimg" data-blob="${b.blobId}" data-act="lb" data-id="${b.blobId}" alt="">`;
+  else if(EDB===b.id)body=`<textarea class="bitta" data-input="bitText" data-id="${b.id}" rows="${Math.min(10,b.text.split('\n').length+1)}">${esc(b.text)}</textarea>`;
+  else body=`<div class="bittx ${b.kind==='chord'?'mono':''}">${esc(b.text).replace(/https?:\/\/[^\s<]+/g,u=>`<a href="${u}" target="_blank" rel="noopener">${u}</a>`)}</div>`;
+  const meta=[b.bpm&&'♩'+esc(b.bpm),b.key&&'キー '+esc(b.key),...(b.tags||[]).map(t=>'#'+esc(t))].filter(Boolean).join(' ');const ix=b.ideaId&&ideaById(b.ideaId);
+  return `<div class="bit ${b.ideaId?'used':''}"><div class="bithead"><button class="bitk k-${b.kind}" data-act="bitKind" data-id="${b.id}" ${isMedia(b)?'disabled':'title="押すと種類を変えられます"'}>${k.i} ${k.l}</button>
+    <span class="sub bitmeta">${fmtDay(b.ts)}${meta?' ・ '+meta:''}${ix?` ・ <a href="#/idea/${ix.id}">💡${esc(ideaTitle(ix))}</a>`:''}</span><span class="spacer"></span>
+    ${isMedia(b)?'':`<button class="ghost" data-act="bitEdit" data-id="${b.id}">${EDB===b.id?'完了':'✎'}</button>`}
+    ${inGroup?`<button class="ghost" data-act="bitSolo" data-id="${b.id}" title="このまとまりから外す">外す</button>`:b.solo?`<button class="ghost" data-act="bitSolo" data-id="${b.id}" title="またまとまりに入れる">つなぐ</button>`:''}
+    <button class="ghost" data-act="bitDel" data-id="${b.id}" title="削除">✕</button></div>${body}</div>`}
+function groupHTML(c){const ids=c.bits.map(b=>b.id).join(',');
+  return `<div class="card bgroup"><div class="hstack bghead"><b>📦 ${esc(groupName(c))}</b><span class="sub">${c.bits.length}こ</span></div>
+    <div class="hstack gto"><button class="primary" data-act="groupToIdea" data-ids="${ids}">💡 アイデアにまとめる</button>
+    ${ideas().length?`<select class="gsel"><option value="">今あるアイデアに入れる…</option>${ideas().map(x=>`<option value="${x.id}">${esc(ideaTitle(x))}</option>`).join('')}</select><button data-act="groupToExisting" data-ids="${ids}">入れる</button>`:''}</div>
+    ${c.bits.map(b=>bitHTML(b,true)).join('')}</div>`}
+function inboxListHTML(){const all=bits(),showUsed=UI('bitUsed'),list=showUsed?all:all.filter(b=>!b.ideaId);
+  if(!list.length)return `<div class="empty">${all.length?'未整理のかけらはありません':'まだ何もありません。思いついたことを上にどんどん投げ込んでください。<br>同じ言葉を使っているかけらや、続けて投げ込んだかけらは、自動で「まとまり」になります。'}</div>`;
+  if(WV==='time')return list.slice().sort((a,b)=>b.ts-a.ts).map(b=>bitHTML(b,false)).join('');
+  const cs=bitClusters(list),multi=cs.filter(c=>c.bits.length>1),single=cs.filter(c=>c.bits.length===1);
+  return multi.map(groupHTML).join('')+(single.length?`<div class="sec">まだどれともつながっていないかけら ${single.length}</div>`+single.map(c=>bitHTML(c.bits[0],false)).join(''):'')}
+function viewInbox(){const open=bits().filter(b=>!b.ideaId).length,recOn=rec&&rec.target===INBOX;
+  return topbar('inbox')+`<main>
+  <div class="card dump"><textarea id="dumpIn" rows="3" data-input="dumpDraft" placeholder="なんでも投げ込む: 歌詞の一言・コード・メモ・URL…&#10;空行で区切ると別々のかけらになります">${esc(DUMP)}</textarea>
+    <div class="hstack dumpbtns"><button class="primary" data-act="dumpGo">⬇ 投げ込む</button><button class="${recOn?'rec':''}" data-act="dumpRec">${recOn?'■ 止める <span id="recT">0:00</span>':'● 録音'}</button><button data-act="dumpFile">📷 写真・音声</button></div></div>
+  <div class="hstack wbar"><span class="mseg"><button class="${WV==='group'?'on':''}" data-act="wView" data-v="group">📦 まとまり</button><button class="${WV==='time'?'on':''}" data-act="wView" data-v="time">🕒 時間順</button></span>
+    <span class="sub">未整理 ${open}</span><span class="spacer"></span><label class="sub"><input type="checkbox" data-change="bitUsed" ${UI('bitUsed')?'checked':''}> まとめたものも出す</label></div>
+  <div id="bitList">${inboxListHTML()}</div></main>`}
+// かけらをアイデアに入れる: 種類ごとに歌詞・コード進行・メモへ足し、録音と写真はそのままアイデアのメモに移す
+function bitsIntoIdea(x,bs){const by=k=>bs.filter(b=>b.kind===k).sort((a,b)=>a.ts-b.ts);const tx=b=>b.text.replace(/\s*[#＃][^\s#＃]+/g,'').trim();const add=(f,v)=>{if(!v)return;x[f]=x[f]&&x[f].trim()?x[f].trim()+'\n'+v:v};
+  add('lyric',by('lyric').map(tx).join('\n'));add('chords',by('chord').map(tx).join('\n'));add('text',[...by('memo'),...by('link')].map(tx).join('\n\n'));
+  bs.forEach(b=>{if(b.blobId)x.memos.push({id:uid(),kind:b.kind,blobId:b.blobId,name:b.name||'',ts:b.ts});if(!x.bpm&&b.bpm)x.bpm=b.bpm;if(!x.key&&b.key)x.key=b.key;
+    (b.tags||[]).forEach(t=>{if(!x.tags.includes(t))x.tags.push(t)});b.ideaId=x.id});
+  if(x.status==='seed'&&bs.length>2)x.status='grow';touch(x)}
+const INBOX_ACT={
+  dumpGo(){const el=$('#dumpIn'),v=(el&&el.value)||'';if(!v.trim())return toast('何か書いてから投げ込んでください');const n=throwIn(v);DUMP='';save();render();
+    toast(`${n}こ投げ込みました`);const d=$('#dumpIn');if(d&&!TOUCH)d.focus()},
+  dumpRec(){toggleRec(INBOX)},
+  dumpFile(){pickMode='inbox';const f=$('#filePick');f.accept='image/*,audio/*,video/*';f.value='';f.click()},
+  wView(t){WV=t.dataset.v;render()},
+  bitKind(t){const b=bitById(t.dataset.id);if(!b||isMedia(b))return;b.kind=BK_CYCLE[(BK_CYCLE.indexOf(b.kind)+1)%BK_CYCLE.length];render()},
+  bitEdit(t){const id=t.dataset.id;if(EDB===id){const b=bitById(id);if(b)Object.assign(b,bitMeta(b.text));EDB=null}else EDB=id;render();
+    const a=document.querySelector(`.bitta[data-id="${id}"]`);if(a)a.focus()},
+  bitSolo(t){const b=bitById(t.dataset.id);if(b){b.solo=!b.solo;render()}},
+  bitDel(t){S.bits=bits().filter(b=>b.id!==t.dataset.id);render();toast('削除しました(↶ で戻せます)')},
+  groupToIdea(t){const bs=t.dataset.ids.split(',').map(bitById).filter(Boolean);if(!bs.length)return;const x=newIdea('');ideas().unshift(x);bitsIntoIdea(x,bs);save();
+    location.hash='#/idea/'+x.id;toast(`${bs.length}このかけらをアイデアにまとめました`)},
+  groupToExisting(t){const sel=t.closest('.bgroup').querySelector('.gsel'),x=sel&&ideaById(sel.value);if(!x)return toast('入れるアイデアを選んでください');
+    const bs=t.dataset.ids.split(',').map(bitById).filter(Boolean);bitsIntoIdea(x,bs);save();render();toast(`「${ideaTitle(x)}」に入れました`)},
+};
+const INBOX_INP={
+  dumpDraft(t){DUMP=t.value},
+  bitText(t){const b=bitById(t.dataset.id);if(b)b.text=t.value},
+  bitName(t){const b=bitById(t.dataset.id);if(b)b.name=t.value},
+};
+const INBOX_CHG={bitUsed(t){S.prefs.ui=S.prefs.ui||{};S.prefs.ui.bitUsed=t.checked;render()}};
+
 const IDEA_ACT={
   quickRec(){if(rec)return toggleRec();const x=newIdea('');ideas().unshift(x);toggleRec(x,true)},
   quickText(){const x=newIdea('');ideas().unshift(x);save();location.hash='#/idea/'+x.id;setTimeout(()=>{const t=document.querySelector('[data-k=text]');if(t)t.focus()},60)},
@@ -1593,7 +1697,8 @@ const IDEA_INP={
    歌詞の断片などを単語に分けて、同じ言葉を使っている断片どうしを言葉の点でつなぐ。
    断片(アイデア・曲)と言葉の2種類の点を、ばねで引っぱり合う形で並べる */
 const GSEG=(typeof Intl!=='undefined'&&Intl.Segmenter)?new Intl.Segmenter('ja',{granularity:'word'}):null;
-const GSTOP=new Set('こと もの よう それ これ あれ どれ ため する して した いる いた ある あっ なる なっ できる ない なく ます です でし から まで けど でも そして だけ ほど など みたい ような ように ので のに って という とか the and you'.split(' '));
+const GSTOP=new Set('上 下 中 前 後 今 日 時 人 事 物 方 何 所 気 こと もの よう それ これ あれ どれ ため する して した いる いた ある あっ なる なっ できる ない なく ます です でし から まで けど でも そして だけ ほど など みたい ような ように ので のに って という とか the and you'.split(' '));
+const GICON={idea:'💡',song:'🎵',bit:'📦'};
 function gWords(text){if(!text)return [];const out=new Set();
   const segs=GSEG?[...GSEG.segment(text)].filter(s=>s.isWordLike).map(s=>s.segment):text.split(/[\s、。,.!?！？「」『』()（）・…]+/);
   // 「坂の上」のようにまとまって出てくる言葉は、中の漢字・カタカナのかたまり(坂・上)も言葉として拾う
@@ -1607,6 +1712,8 @@ function gWords(text){if(!text)return [];const out=new Set();
 function gSources(){const p=S.prefs,out=[];
   ideas().forEach(x=>{const t=[x.title,x.lyric,p.gMemo?x.text:''].filter(v=>v&&v.trim()).join('\n');
     if(t.trim())out.push({id:'i:'+x.id,kind:'idea',title:ideaTitle(x),text:t,href:'#/idea/'+x.id})});
+  if(p.gBits!==false)bits().filter(b=>!b.ideaId&&(b.kind==='lyric'||(p.gMemo&&b.kind==='memo'))&&b.text.trim())
+    .forEach(b=>out.push({id:'b:'+b.id,kind:'bit',title:b.text.trim().split('\n')[0].slice(0,14),text:b.text,href:'#/inbox'}));
   if(p.gSong!==false)S.songs.forEach(s=>{const t=s.blocks.flatMap(b=>b.bars.map(x=>x.lyric).filter(v=>v&&v.trim())).join('\n');
     if(t.trim())out.push({id:'s:'+s.id,kind:'song',title:s.title,text:t,href:'#/song/'+s.id})});
   return out}
@@ -1633,7 +1740,7 @@ const gR=n=>n.t==='word'?6+Math.min(10,n.deg*2.2):0;
 function gNodeSVG(n,on){const cls=`gn ${n.t} ${n.s?n.s.kind:''} ${on===false?'dim':''} ${GSEL===n.id?'sel':''}`;
   if(n.t==='word')return `<g class="${cls}" data-gid="${esc(n.id)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})"><circle r="${gR(n)}"></circle><text y="${gR(n)+14}" text-anchor="middle">${esc(n.label)}</text></g>`;
   const lb=n.label.length>12?n.label.slice(0,12)+'…':n.label,w=lb.length*13+20;
-  return `<g class="${cls}" data-gid="${esc(n.id)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})"><rect x="${-w/2}" y="-14" width="${w}" height="28" rx="14"></rect><text y="5" text-anchor="middle">${n.s.kind==='song'?'🎵':'💡'}${esc(lb)}</text></g>`}
+  return `<g class="${cls}" data-gid="${esc(n.id)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})"><rect x="${-w/2}" y="-14" width="${w}" height="28" rx="14"></rect><text y="5" text-anchor="middle">${GICON[n.s.kind]}${esc(lb)}</text></g>`}
 function gSVG(g){const near=new Set();if(GSEL){near.add(GSEL);g.edges.forEach(([a,b])=>{if(a===GSEL)near.add(b);if(b===GSEL)near.add(a)})}
   const pos=Object.fromEntries(g.nodes.map(n=>[n.id,n]));
   const lines=g.edges.map(([a,b])=>{const A=pos[a],B=pos[b];const on=!GSEL||(a===GSEL||b===GSEL);
@@ -1643,16 +1750,17 @@ function gMark(text,w){const e=esc(text);if(!w)return e;const re=new RegExp(esc(
 function gInfoHTML(g){if(!GSEL)return `<p class="sub" style="margin:0">言葉(丸)を押すと、その言葉を使っている断片がここに並びます。断片(💡・🎵)を押すと、そこから出ている言葉が光ります。ドラッグで動かす・2本指やホイールで拡大縮小。</p>`;
   if(GSEL.startsWith('w:')){const w=GSEL.slice(2),list=g.map.get(w)||[];
     return `<b>「${esc(w)}」が出てくる断片 ${list.length}</b>${list.map(s=>{const ls=s.text.split('\n').filter(l=>l.toLowerCase().includes(w));
-      return `<div class="gitem"><a href="${s.href}">${s.kind==='song'?'🎵':'💡'} ${esc(s.title)}</a>${ls.slice(0,4).map(l=>`<div class="gline">${gMark(l,w)}</div>`).join('')}</div>`}).join('')}`}
+      return `<div class="gitem"><a href="${s.href}">${GICON[s.kind]} ${esc(s.title)}</a>${ls.slice(0,4).map(l=>`<div class="gline">${gMark(l,w)}</div>`).join('')}</div>`}).join('')}`}
   const s=g.src.find(x=>x.id===GSEL);if(!s)return '';
   const ws=s.words.filter(w=>(g.map.get(w)||[]).length>1);
-  return `<div class="hstack"><b>${s.kind==='song'?'🎵':'💡'} ${esc(s.title)}</b><span class="spacer"></span><a href="${s.href}"><button>開く</button></a></div>
+  return `<div class="hstack"><b>${GICON[s.kind]} ${esc(s.title)}</b><span class="spacer"></span><a href="${s.href}"><button>開く</button></a></div>
     <div class="gline" style="white-space:pre-line;margin:6px 0">${esc(s.text.slice(0,300))}</div>
     ${ws.length?`<div class="sub">ほかの断片とつながっている言葉</div><div>${ws.map(w=>`<button class="gchip" data-act="gPick" data-v="w:${esc(w)}">${esc(w)} <span class="sub">${g.map.get(w).length}</span></button>`).join('')}</div>`:'<div class="sub">ほかの断片と同じ言葉はまだありません</div>'}`}
 function viewGraph(){const g=gBuild();GCUR=g;const p=S.prefs;
   if(R.a&&R.a!==GLAST){GSEL='i:'+R.a;GLAST=R.a}if(!R.a)GLAST=null;if(GSEL&&!g.nodes.some(n=>n.id===GSEL))GSEL=null;
   gLayout(g);if(!GVB)GVB=gFit(g.nodes);
-  const opts=`<div class="hstack gopts"><label class="sub"><input type="checkbox" data-change="gOpt" data-k="gMemo" ${p.gMemo?'checked':''}> アイデアのメモも入れる</label>
+  const opts=`<div class="hstack gopts"><label class="sub"><input type="checkbox" data-change="gOpt" data-k="gBits" ${p.gBits!==false?'checked':''}> 倉庫のかけらも入れる</label>
+    <label class="sub"><input type="checkbox" data-change="gOpt" data-k="gMemo" ${p.gMemo?'checked':''}> メモも入れる</label>
     <label class="sub"><input type="checkbox" data-change="gOpt" data-k="gSong" ${p.gSong!==false?'checked':''}> 曲の歌詞も入れる</label>
     <label class="sub"><input type="checkbox" data-change="gOpt" data-k="gAll" ${p.gAll?'checked':''}> 1か所だけの言葉も出す</label>
     <span class="spacer"></span><button class="ghost" data-act="gFitBtn">全体</button><button class="ghost" data-act="gRelayout">並べ直す</button></div>`;
@@ -2025,7 +2133,7 @@ function wbrize(el){if(!el)return;el.classList.add('bunsetsu');if(!WBRIZE_ON)ret
 const WBRIZE_ON=false;
 /* ---------- お知らせ(更新情報) ---------- 新しいものを上に足していく */
 const NEWS=[
-  {d:'2026-10-23',items:['曲作りアイデア帳をはじめました(コピバン練習ノートの自分用版)','アイデア: すぐ録音・書きとめる・写真で、思いついたことをすぐ残せます','アイデアから「曲にする」で、コピバン練習ノートと同じ構成・コード・メモの画面で曲を組めます','曲とアイデアを写真・録音ごと1つのファイル(.songnote.json)で送ったり読み込んだりできます','🕸 ことばのつながり: 歌詞の断片を言葉に分けて、同じ言葉を使っている断片どうしをつないで見られます(上の「つながり」)']}];
+  {d:'2026-10-23',items:['曲作りアイデア帳をはじめました(コピバン練習ノートの自分用版)','アイデア: すぐ録音・書きとめる・写真で、思いついたことをすぐ残せます','アイデアから「曲にする」で、コピバン練習ノートと同じ構成・コード・メモの画面で曲を組めます','曲とアイデアを写真・録音ごと1つのファイル(.songnote.json)で送ったり読み込んだりできます','🕸 ことばのつながり: 歌詞の断片を言葉に分けて、同じ言葉を使っている断片どうしをつないで見られます(上の「つながり」)','📦 倉庫: 歌詞・コード・メモ・URL・録音・写真をとりあえず投げ込むと、種類を見分けて、似たものを「まとまり」にしてくれます。まとまりはボタン1つでアイデアに']}];
 const newsUnseen=()=>(S.prefs.newsSeen||'')<NEWS[0].d;
 function newsCard(){const open=UI('newsAll'),list=open?NEWS:NEWS.slice(0,1);
   return `<div class="card"><b>🆕 お知らせ(不具合修正・アップデート)</b>
@@ -2058,10 +2166,10 @@ function settingCards(){return {news:newsCard(),
     </div>`,
   backup:`<div class="card"><b>バックアップ</b><p class="note">データはこのPCのブラウザの中に保存されています(サーバーには送られません)。ブラウザの閲覧データを消すと一緒に消えるので、ときどき書き出しておくと安心です。写真と録音もまとめて1つのファイルに入ります。</p>
     <div class="hstack"><button class="primary" data-act="export">バックアップを書き出す</button><button data-act="import">バックアップから復元</button></div></div>`,
-  tips:`<div class="card"><b>メモ</b><p class="note">・起動するとアイデアの一覧が開きます。「● すぐ録音」は押した瞬間に新しいアイデアを作って録音を始めます。<br>・アイデアの状態(💡種・🌱育て中・🎵曲にした・💤寝かせ)で絞り込めます。寝かせたものも消えません。<br>・コード進行は「Em C | D G」のように | で小節を区切って書くと、「曲にする」でAメロのマスにそのまま並びます。<br>・曲の画面の「🔗 共有リンク」はコピバン練習ノートで開けるので、バンドに渡すときに使えます。写真・録音ごと渡すときは「📤 ファイルで送る」。<br>・データはこの端末のブラウザの中だけにあります。ときどきバックアップを書き出しておくと安心です。</p></div>`}}
+  tips:`<div class="card"><b>メモ</b><p class="note">・起動すると「倉庫」が開きます。思いついたことは整理せずに投げ込んでOK。同じ言葉を使っているもの・5分以内に続けて投げ込んだものが自動で「まとまり」になります。違うものが混ざったら「外す」、種類の札(✍歌詞など)は押すと変えられます。<br>・アイデアの状態(💡種・🌱育て中・🎵曲にした・💤寝かせ)で絞り込めます。寝かせたものも消えません。<br>・コード進行は「Em C | D G」のように | で小節を区切って書くと、「曲にする」でAメロのマスにそのまま並びます。<br>・曲の画面の「🔗 共有リンク」はコピバン練習ノートで開けるので、バンドに渡すときに使えます。写真・録音ごと渡すときは「📤 ファイルで送る」。<br>・データはこの端末のブラウザの中だけにあります。ときどきバックアップを書き出しておくと安心です。</p></div>`}}
 function b64(blob){return new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(blob)})}
 async function doExport(){const blobs={};for(const id of songBlobIds(S.songs)){const b=await getBlob(id);if(b)blobs[id]=await b64(b)}
-  for(const id of ideaBlobIds(ideas())){if(blobs[id])continue;const b=await getBlob(id);if(b)blobs[id]=await b64(b)}
+  for(const id of [...ideaBlobIds(ideas()),...bits().filter(b=>b.blobId).map(b=>b.blobId)]){if(blobs[id])continue;const b=await getBlob(id);if(b)blobs[id]=await b64(b)}
   const data=JSON.stringify({app:'kyoku-idea',exported:new Date().toISOString(),state:S,blobs});
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
   const d=new Date();a.download=`曲作りアイデア帳_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;a.click();toast('書き出しました')}
@@ -2274,7 +2382,7 @@ const ACT={
   bMark(t){const b=curSong().blocks.find(x=>x.id===t.dataset.id);b.start=Math.round(M.time()*10)/10;save();render();toast(`「${b.name}」の頭を ${fmtT(b.start)} にしました`)},
   pickFiles(){pickMode='memo';const f=$('#filePick');f.accept='image/*,audio/*,video/*';f.value='';f.click()},
   rec:()=>toggleRec(),
-  ...IDEA_ACT,...GRAPH_ACT,
+  ...IDEA_ACT,...GRAPH_ACT,...INBOX_ACT,
   addText(){curBlock().memos.push({id:uid(),kind:'text',text:'',ts:Date.now()});render();const a=document.querySelectorAll('textarea');a[a.length-1]?.focus()},
   delMemo(t){const {m,b}=findMemo(t.dataset.id);if(!m||!confirm('このメモを削除しますか？'))return;if(m.blobId)delBlob(m.blobId);b.memos=b.memos.filter(x=>x!==m);render()},
   async lb(t){$('#overlay').innerHTML=`<div class="lb" data-act="lbClose"><img src="${await blobURL(t.dataset.id)}" data-act="lbZoom"></div><button class="lbx" data-act="lbClose">✕</button>`},
@@ -2296,7 +2404,7 @@ const ACT={
     S.songs=S.songs.filter(s=>s.bandId!==b.id);S.setlists=S.setlists.filter(x=>x.bandId!==b.id);S.bands=S.bands.filter(x=>x!==b);S.cur.band=S.bands[0].id;S.cur.setlist=null;render()},
 };
 const CHG={
-  ...IDEA_CHG,...GRAPH_CHG,
+  ...IDEA_CHG,...GRAPH_CHG,...INBOX_CHG,
   band(t){if(t.value==='__new'){newBand();if(t.value==='__new')render();return}S.cur.band=t.value;S.cur.setlist=null;location.hash='#/';render()},
   pickSetlist(t){S.cur.setlist=t.value;location.hash='#/setlist/'+t.value;render()},
 
@@ -2338,7 +2446,7 @@ const CHG={
     while(bl.bars.length<n)bl.bars.push(newBar(meterSlots(blockMeter(bl,curSong()))));bl.bars.length=n;if(P&&P.bar>=n)P=null;render()},
 };
 const INP={
-  ...IDEA_INP,
+  ...IDEA_INP,...INBOX_INP,
   evf(t){const {e}=evFind(t.dataset.id);if(!e)return;e[t.dataset.k]=t.value;const s=$('#evSum-'+e.id);if(s)s.innerHTML=studioSum(e)},
   songField(t){curSong()[t.dataset.k]=t.value;if(t.dataset.k==='url'){syncPlayer();updUrlStat();const o=$('#urlOpen');if(o){o.href=t.value.trim();o.style.display=t.value.trim()?'':'none'}}},
   blockField(t){curBlock()[t.dataset.k]=t.value},
@@ -2358,6 +2466,7 @@ document.addEventListener('input',e=>{const t=e.target;
   if(t.id==='chordIn'&&P){let v=t.value.replace(/^(⌒?)([a-g])/,(m,a,b)=>a+b.toUpperCase()).replace(/\/([a-g])/,(m,b)=>'/'+b.toUpperCase());const keep=Object.assign(parseChord(v),{bar:P.bar,slot:P.slot});P=keep;writeCell(v);const cn=$('#csName'),cd=$('#csDesc');if(cn)cn.textContent=drm(v);if(cd){const tn=keyTonic(blockKey(curBlock(),curSong()));cd.textContent=chordDesc(P)+(tn!=null&&v?' ・ '+toDegree(v,tn):'')}return}
   if(t.dataset.input){INP[t.dataset.input](t);save()}});
 document.addEventListener('keydown',e=>{
+  if(e.target.id==='dumpIn'&&e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();ACT.dumpGo();return}
   if((e.ctrlKey||e.metaKey)&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)){const k=e.key.toLowerCase();
     if(k==='z'&&!e.shiftKey){e.preventDefault();undo();return}if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();redo();return}}
   if(e.key==='Escape'){if($('#overlay').innerHTML){ACT.lbClose();return}if(P){ACT.pClose();return}}
@@ -2412,9 +2521,11 @@ document.addEventListener('drop',e=>{
 document.addEventListener('dragend',()=>{drag=null;document.querySelectorAll('.dragover').forEach(x=>x.classList.remove('dragover'))});
 window.addEventListener('dragover',e=>{if(!drag)e.preventDefault()});
 window.addEventListener('drop',e=>{if(!drag)e.preventDefault()});
-document.addEventListener('paste',e=>{if(!['block','idea'].includes(R.name)||/INPUT|TEXTAREA/.test(e.target.tagName))return;
+document.addEventListener('paste',e=>{if(R.name==='inbox'&&!/INPUT|TEXTAREA/.test(e.target.tagName)&&e.clipboardData.files.length){e.preventDefault();handleFiles([...e.clipboardData.files],INBOX);return}
+  if(!['block','idea'].includes(R.name)||/INPUT|TEXTAREA/.test(e.target.tagName))return;
   const files=[...e.clipboardData.files];if(files.length){e.preventDefault();handleFiles(files)}});
 $('#filePick').addEventListener('change',e=>{const fs=[...e.target.files];if(!fs.length)return;if(pickMode==='song')setSongAudio(curSong(),fs[0]);
+  else if(pickMode==='inbox')handleFiles(fs,INBOX);
   else if(pickMode==='newIdea'){const x=newIdea('');ideas().unshift(x);handleFiles(fs,x).then(()=>{location.hash='#/idea/'+x.id})}else handleFiles(fs)});
 $('#importPick').addEventListener('change',e=>{if(e.target.files[0])doImport(e.target.files[0])});
 window.addEventListener('hashchange',()=>{P=null;$('#overlay').innerHTML='';render();window.scrollTo(0,0)});
@@ -2424,7 +2535,7 @@ window.addEventListener('hashchange',()=>{P=null;$('#overlay').innerHTML='';rend
   if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
   DB=await openDB();
   S=await idb('kv','readonly',s=>s.get('state'))||defaultState();
-  S.prefs=S.prefs||{step:2};S.ideas=S.ideas||[];S.prefs.tutDone=true;
+  S.prefs=S.prefs||{step:2};S.ideas=S.ideas||[];S.bits=S.bits||[];S.prefs.tutDone=true;
   S.markers=S.markers||DEFAULT_MARKERS.map(([name,color])=>({name,color}));
   if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().then(v=>{STORE_OK=v}).catch(()=>{});
   render();gcBlobs();
